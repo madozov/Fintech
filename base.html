@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UTK Shadow Ledger - Student Org Financial Management</title>
+  
+  <!-- Tailwind CSS CDN for responsive UI styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome for visual icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Chart.js CDN for monthly balance trajectory and spending trends -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            utorange: '#FF8200',   // Official UT Knoxville Orange
+            utsmokey: '#4B4B4B',   // Official Smokey Gray
+            utdark: '#22252A',     // Dark neutral background
+            utlight: '#F8F9FA'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- ==================== HEADER & PERSPECTIVE SWITCHER ==================== -->
+  <header class="bg-utdark text-white border-b-4 border-utorange sticky top-0 z-40 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      
+      <!-- Brand Logo & Organization Badge -->
+      <div class="flex items-center space-x-3">
+        <div class="bg-utorange text-white p-2.5 rounded-xl font-black text-2xl shadow-md flex items-center justify-center w-11 h-11">
+          T
+        </div>
+        <div>
+          <h1 class="text-lg font-extrabold tracking-tight leading-tight flex items-center gap-2">
+            Shadow Ledger
+            <span class="text-[10px] bg-utorange/20 text-utorange border border-utorange/40 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">UTK Edition</span>
+          </h1>
+          <p class="text-xs text-slate-400">Organization: <span class="text-white font-semibold">Volunteers in Coding (UTK)</span></p>
+        </div>
+      </div>
+
+      <!-- Perspective Role Switcher Bar -->
+      <div class="bg-slate-800 p-1.5 rounded-xl border border-slate-700 flex items-center justify-between md:justify-end space-x-1 text-xs shadow-inner">
+        <span class="text-slate-400 font-medium px-2 hidden lg:inline"><i class="fa-solid fa-user-gear mr-1 text-utorange"></i> Role Viewpoint:</span>
+        
+        <button id="btnRoleOfficer" onclick="switchPerspective('officer')" 
+          class="px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 bg-utorange text-white shadow">
+          <i class="fa-solid fa-user"></i> Officer View
+        </button>
+        
+        <button id="btnRoleTreasurer" onclick="switchPerspective('treasurer')" 
+          class="px-3.5 py-1.5 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-700 transition-all flex items-center gap-1.5">
+          <i class="fa-solid fa-calculator"></i> Treasurer View
+        </button>
+        
+        <button id="btnRolePresident" onclick="switchPerspective('president')" 
+          class="px-3.5 py-1.5 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-700 transition-all flex items-center gap-1.5">
+          <i class="fa-solid fa-crown"></i> President View
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Perspective Context Banner -->
+  <div id="roleBanner" class="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-900 shadow-sm">
+    <div class="max-w-7xl mx-auto w-full flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-shield-halved text-utorange text-sm"></i>
+        <span id="roleBannerText">Logged in as <strong>Alex Officer (alex@vols.utk.edu)</strong> — You can submit approval requests, upload reimbursement requests, and track your submission history.</span>
+      </div>
+      <span class="text-[11px] font-semibold text-utsmokey bg-white px-2.5 py-0.5 rounded-full border border-slate-200 hidden sm:inline">UT Knoxville Financial Management Standard</span>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
+
+    <!-- NAVIGATION TABS FOR SECTIONS -->
+    <div class="flex border-b border-slate-200 space-x-2 text-sm font-bold">
+      <button id="tabBtnDashboard" onclick="switchTab('dashboard')" class="pb-3 px-4 text-utorange border-b-2 border-utorange flex items-center gap-2 transition-all">
+        <i class="fa-solid fa-gauge-high"></i> <span id="tabTitleDashboard">My Requests Dashboard</span>
+      </button>
+      
+      <!-- Hidden for Officer perspective -->
+      <button id="tabBtnTrends" onclick="switchTab('trends')" class="pb-3 px-4 text-slate-500 hover:text-slate-800 border-b-2 border-transparent flex items-center gap-2 transition-all">
+        <i class="fa-solid fa-chart-line"></i> Monthly Spending Trajectory
+      </button>
+      
+      <button id="tabBtnCompliance" onclick="switchTab('compliance')" class="pb-3 px-4 text-slate-500 hover:text-slate-800 border-b-2 border-transparent flex items-center gap-2 transition-all">
+        <i class="fa-solid fa-graduation-cap"></i> Compliance & Education
+      </button>
+    </div>
+
+
+    <!-- ==================== TAB 1: DASHBOARD VIEW ==================== -->
+    <div id="tabDashboard" class="space-y-6">
+      
+      <!-- ==================== EXECUTIVE 3-BALANCE CARDS (TREASURER & PRESIDENT ONLY) ==================== -->
+      <section id="executiveBalancePanel" class="grid grid-cols-1 md:grid-cols-3 gap-5 hidden">
+        
+        <!-- 1. True Bank Balance Card with Embedded Action Buttons -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-[11px] uppercase tracking-wider font-extrabold text-utsmokey">1. True Bank Balance</p>
+                <h2 id="displayBankBalance" class="text-3xl font-black text-slate-900 mt-1">$0.00</h2>
+                <p class="text-[11px] text-slate-500 mt-0.5">Verified Student Union Bank Acct</p>
+              </div>
+              <div class="bg-blue-50 text-blue-600 p-3 rounded-2xl border border-blue-100 shadow-sm">
+                <i class="fa-solid fa-building-columns text-xl"></i>
+              </div>
+            </div>
+
+            <!-- EMBEDDED RECONCILIATION & DEPOSIT BUTTONS (Under True Bank Balance) -->
+            <div id="trueBankActionContainer" class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-2">
+              <button onclick="openReconcileModal()" class="flex-1 bg-utdark hover:bg-slate-800 text-white font-bold text-[11px] py-1.5 px-2.5 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-rotate text-utorange"></i> Reconcile Bank Balance
+              </button>
+              <button onclick="openDepositModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] py-1.5 px-2.5 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1">
+                <i class="fa-solid fa-circle-plus"></i> Log Deposit
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <span>Last Reconciled: <strong id="displayLastReconciled">Oct 12, 2026</strong></span>
+            <span class="text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px]">Real Cash</span>
+          </div>
+        </div>
+
+        <!-- 2. Committed Funds Card -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="text-[11px] uppercase tracking-wider font-extrabold text-utsmokey">2. Committed Funds</p>
+              <h2 id="displayCommittedBalance" class="text-3xl font-black text-amber-600 mt-1">$0.00</h2>
+              <p class="text-[11px] text-slate-500 mt-0.5">Locked for Approved Spending</p>
+            </div>
+            <div class="bg-amber-50 text-amber-600 p-3 rounded-2xl border border-amber-100 shadow-sm">
+              <i class="fa-solid fa-lock text-xl"></i>
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Active Holds: <strong id="displayCommittedCount">0 Items</strong></span>
+            <span class="text-amber-800 bg-amber-50 px-2 py-0.5 rounded font-bold text-[10px]">Earmarked</span>
+          </div>
+        </div>
+
+        <!-- 3. Available Balance Card -->
+        <div id="cardAvailableBalance" class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between transition-colors">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="text-[11px] uppercase tracking-wider font-extrabold text-utsmokey">3. Available Working Budget</p>
+              <h2 id="displayAvailableBalance" class="text-3xl font-black text-emerald-600 mt-1">$0.00</h2>
+              <p class="text-[11px] text-slate-500 mt-0.5">True Balance - Committed</p>
+            </div>
+            <div id="iconAvailableBalance" class="bg-emerald-50 text-emerald-600 p-3 rounded-2xl border border-emerald-100 shadow-sm">
+              <i class="fa-solid fa-wallet text-xl"></i>
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
+            <span>Safe to Allocate</span>
+            <span id="badgeAvailableStatus" class="bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]">Healthy</span>
+          </div>
+        </div>
+
+      </section>
+
+
+      <!-- ==================== OFFICER PERSONAL COUNTER CARD (OFFICER ONLY) ==================== -->
+      <section id="officerSummaryPanel" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-[11px] uppercase tracking-wider font-extrabold text-utsmokey">Awaiting Reimbursement Settlement</p>
+            <h2 id="displayOfficerPendingAmount" class="text-3xl font-black text-purple-600 mt-1">$0.00</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Submitted reimbursement receipts awaiting Treasurer payout</p>
+          </div>
+          <div class="bg-purple-50 text-purple-600 p-4 rounded-2xl border border-purple-100">
+            <i class="fa-solid fa-clock-rotate-left text-2xl"></i>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-[11px] uppercase tracking-wider font-extrabold text-utsmokey">My Active Submissions</p>
+            <h2 id="displayOfficerActiveCount" class="text-3xl font-black text-slate-900 mt-1">0 Items</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Approval requests & reimbursements in progress</p>
+          </div>
+          <div class="bg-blue-50 text-blue-600 p-4 rounded-2xl border border-blue-100">
+            <i class="fa-solid fa-paper-plane text-2xl"></i>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- Dynamic Over-Available Alert Banner System (Treasurer & President) -->
+      <div id="globalOverAvailableAlert" class="hidden bg-rose-50 border-l-4 border-rose-500 p-4 rounded-2xl shadow-sm text-rose-900 text-sm flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-triangle-exclamation text-rose-500 text-2xl"></i>
+          <div>
+            <p class="font-bold text-slate-900">Over-Available Budget Deficit Flagged!</p>
+            <p class="text-xs text-rose-700">One or more active requests exceed your currently available working balance. Treasurer override is required.</p>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ==================== TREASURER CONTROLS BAR ==================== -->
+      <div id="treasurerControlsBar" class="hidden bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center space-x-2">
+          <span class="bg-utorange/10 text-utorange p-2 rounded-lg font-bold"><i class="fa-solid fa-sliders"></i></span>
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-sm">Treasurer Expense Overage Tolerance Rules</h3>
+            <p class="text-xs text-slate-500">Automatically caps reimbursements that exceed approved estimates</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3 text-xs">
+          <label for="toleranceCapInput" class="font-bold text-slate-700">Overage Tolerance Cap (%):</label>
+          <input type="number" id="toleranceCapInput" min="0" max="50" value="10" onchange="updateToleranceCap(this.value)" class="w-16 p-1.5 rounded-lg border border-slate-300 font-bold text-center text-slate-800 focus:ring-2 focus:ring-utorange focus:outline-none">
+          <span class="text-slate-500 italic hidden sm:inline">(Capped automatically on submission)</span>
+        </div>
+      </div>
+
+
+      <!-- ==================== PRESIDENT EXECUTIVE HANDOFF PROTOCOL CARD ==================== -->
+      <div id="presidentHandoffCard" class="hidden bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div class="flex items-center space-x-2">
+            <div class="p-2 bg-purple-50 text-purple-700 rounded-xl"><i class="fa-solid fa-id-card-clip text-lg"></i></div>
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm">Executive Board Role Transfer Protocol</h3>
+              <p class="text-xs text-slate-500">Hand off executive permissions (President / Treasurer / Officer) for next semester</p>
+            </div>
+          </div>
+          <span class="text-xs bg-purple-100 text-purple-900 font-bold px-3 py-1 rounded-full uppercase tracking-wider">President Safeguard</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Invite Form -->
+          <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2 text-xs">
+            <h4 class="font-bold text-slate-800 uppercase text-[10px] tracking-wider">1. Send Role Transfer Invite</h4>
+            <div>
+              <label class="block text-slate-600 mb-1">Target Role</label>
+              <select id="transferRoleSelect" class="w-full p-2 rounded-lg border border-slate-300">
+                <option value="Treasurer">Incoming Treasurer</option>
+                <option value="President">Incoming President</option>
+                <option value="Officer">Incoming Officer</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-600 mb-1">Incoming Member NetID Email</label>
+              <input type="email" id="transferEmailInput" placeholder="netid@vols.utk.edu" class="w-full p-2 rounded-lg border border-slate-300">
+            </div>
+            <button onclick="initiateRoleTransfer()" class="w-full bg-utdark hover:bg-slate-800 text-white font-bold py-2 rounded-lg transition-all mt-1">
+              Send Handoff Invitation
+            </button>
+          </div>
+
+          <!-- Active Handoff Status -->
+          <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200 col-span-2 flex flex-col justify-between text-xs">
+            <div>
+              <h4 class="font-bold text-slate-800 uppercase text-[10px] tracking-wider mb-2">2. Pending Transfer Safety Queue</h4>
+              <div id="transferPendingContainer" class="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
+                <!-- Dynamically rendered -->
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-2">
+              <i class="fa-solid fa-circle-info mr-1"></i> Position upgrades remain pending until accepted by the recipient. The President can revoke pending transfers at any time.
+            </p>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ==================== MAIN DASHBOARD REQUEST QUEUE ==================== -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        
+        <!-- Queue Header & Universal Submission Trigger -->
+        <div class="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 id="queueMainTitle" class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-utorange"></i> My Active Requests Queue
+            </h3>
+            <p id="queueMainSubtitle" class="text-xs text-slate-500">Submit new spending approval estimates or upload reimbursement requests against approved items</p>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <!-- Submit New Approval Request Button -->
+            <button onclick="openNewRequestModal()" class="bg-utorange hover:bg-orange-600 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow transition-all flex items-center gap-2">
+              <i class="fa-solid fa-circle-plus"></i> Submit New Request
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Tabs Bar -->
+        <div class="bg-slate-50 px-5 py-2.5 border-b border-slate-200 flex items-center justify-between text-xs overflow-x-auto">
+          <div class="flex space-x-1 font-bold">
+            <button onclick="setQueueFilter('all')" id="queueFilterAll" class="px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm border border-slate-200">All</button>
+            <button onclick="setQueueFilter('pending')" id="queueFilterPending" class="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-white/60">Pending Review (<span id="filterCountPending">0</span>)</button>
+            <button onclick="setQueueFilter('approved')" id="queueFilterApproved" class="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-white/60">Approved Spending</button>
+            <button onclick="setQueueFilter('submitted')" id="queueFilterSubmitted" class="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-white/60">Awaiting Settlement</button>
+            <button onclick="setQueueFilter('completed')" id="queueFilterCompleted" class="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-white/60">Reimbursed & Settled</button>
+          </div>
+          <span class="text-slate-400 font-medium hidden sm:inline" id="queueTotalCountDisplay">Total: 0</span>
+        </div>
+
+        <!-- Request Queue Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-slate-500 uppercase text-[11px] tracking-wider border-b border-slate-100">
+              <tr>
+                <th class="py-3 px-4">Title & Submitter</th>
+                <th class="py-3 px-4">Category</th>
+                <th class="py-3 px-4 text-right">Approved Estimate ($)</th>
+                <th class="py-3 px-4 text-right">Reimbursement Receipt ($)</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tableQueue" class="divide-y divide-slate-100">
+              <!-- Dynamically populated by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+      <!-- ==================== TRUE BANK LEDGER TABLE (TREASURER & PRESIDENT ONLY) ==================== -->
+      <div id="sectionBankLedger" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hidden">
+        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+          <div>
+            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+              <i class="fa-solid fa-receipt text-emerald-600"></i> True Balance Bank Ledger
+            </h3>
+            <p class="text-xs text-slate-500">Official log of settled bank subtractions and verified balance allocations</p>
+          </div>
+          <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-full">Bank Settled Log</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-slate-500 uppercase text-[11px] tracking-wider border-b border-slate-100">
+              <tr>
+                <th class="py-3 px-4">Timestamp</th>
+                <th class="py-3 px-4">Description</th>
+                <th class="py-3 px-4">Processed By</th>
+                <th class="py-3 px-4 text-right">Settlement Amount ($)</th>
+              </tr>
+            </thead>
+            <tbody id="tableLedger" class="divide-y divide-slate-100">
+              <!-- Dynamically populated by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- ==================== TAB 2: BALANCE TRAJECTORY & MONTHLY TRENDS (TREASURER & PRESIDENT ONLY) ==================== -->
+    <div id="tabTrends" class="space-y-6 hidden">
+      
+      <!-- Trends Intro Header -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+          <h3 class="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-utorange"></i> Monthly Net Balance Trajectory
+          </h3>
+          <p class="text-xs text-slate-500 mt-1">
+            Visualizing the effect of monthly expenditures and allocations on True Bank Balance vs. Available Working Cash.
+          </p>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl flex items-center space-x-4 text-xs font-bold">
+          <div class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-full bg-blue-600 inline-block"></span> <span>True Bank Balance</span></div>
+          <div class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span> <span>Available Cash</span></div>
+        </div>
+      </div>
+
+      <!-- Chart Canvas Box -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <div class="h-80 w-full">
+          <canvas id="balanceChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Breakdown Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        
+        <!-- Category Expenditure Breakdown -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+          <h4 class="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2">Category Spending Distribution</h4>
+          <div id="categorySpendList" class="space-y-2 text-xs">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Monthly Balance Change Summary -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+          <h4 class="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2">Semester Financial Milestones</h4>
+          <div class="space-y-2 text-xs">
+            <div class="flex justify-between items-center p-2 rounded-lg bg-slate-50">
+              <span class="text-slate-600 font-semibold">Semester Starting Allocation (Aug):</span>
+              <span class="font-extrabold text-slate-900">$2,000.00</span>
+            </div>
+            <div class="flex justify-between items-center p-2 rounded-lg bg-slate-50">
+              <span class="text-slate-600 font-semibold">Total Approved Expenditures To-Date:</span>
+              <span class="font-extrabold text-rose-600" id="trendTotalSpent">$0.00</span>
+            </div>
+            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50 text-emerald-900">
+              <span class="font-bold">Net Remaining Working Funds:</span>
+              <span class="font-black text-sm" id="trendNetAvailable">$0.00</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- ==================== TAB 3: COMPLIANCE & EDUCATION CENTER (ACCESSIBLE TO ALL ROLES) ==================== -->
+    <div id="tabCompliance" class="space-y-6 hidden">
+      
+      <div class="bg-utdark text-white rounded-2xl p-6 shadow-sm border-l-4 border-utorange">
+        <h3 class="text-xl font-extrabold flex items-center gap-2">
+          <i class="fa-solid fa-graduation-cap text-utorange"></i> Student Org Compliance & Accounting Standards
+        </h3>
+        <p class="text-xs text-slate-300 mt-1">
+          Master the UT Knoxville 3-Balance system to prevent overdrafts, enforce tolerance rules, and ensure smooth executive officer handoffs.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        
+        <!-- Concept 1: The 3-Balance Accounting Model -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+          <div class="flex items-center space-x-2 text-utorange font-bold">
+            <i class="fa-solid fa-layer-group text-lg"></i>
+            <h4 class="text-slate-900 text-base">1. The 3-Balance Accounting Standard</h4>
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Traditional bank accounts fail student organizations because checks take weeks to clear at the Student Union. The Shadow Ledger solves this by tracking three concurrent balances:
+          </p>
+          <ul class="text-xs space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-slate-700">
+            <li><strong>• True Bank Balance:</strong> Real cash verified on official Student Union bank statements.</li>
+            <li><strong>• Committed Funds:</strong> Sum of all approved estimates locked for future purchases.</li>
+            <li><strong>• Available Balance:</strong> True Working Cash = Bank Balance - Committed Funds.</li>
+          </ul>
+        </div>
+
+        <!-- Concept 2: Officer Role Privacy & Governance -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+          <div class="flex items-center space-x-2 text-blue-600 font-bold">
+            <i class="fa-solid fa-user-shield text-lg"></i>
+            <h4 class="text-slate-900 text-base">2. Officer Role Privacy Controls</h4>
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            To streamline operations and safeguard financial privacy, Officers view only their own active request queue and personal reimbursement status. Executive balances and bank ledgers are restricted to Treasurers and Presidents.
+          </p>
+          <div class="bg-blue-50 p-3 rounded-xl border border-blue-200 text-xs text-blue-900 space-y-1">
+            <p class="font-bold"><i class="fa-solid fa-circle-check mr-1"></i> Officer Permissions:</p>
+            <p>Officers can submit estimated approval requests, upload reimbursement requests with receipts, track personal payout history, and access training materials.</p>
+          </div>
+        </div>
+
+        <!-- Concept 3: Overage Tolerance Rule -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+          <div class="flex items-center space-x-2 text-emerald-600 font-bold">
+            <i class="fa-solid fa-shield-cat text-lg"></i>
+            <h4 class="text-slate-900 text-base">3. Customizable Overage Tolerance Rules</h4>
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Officers often encounter small unexpected costs (sales tax, price variations) during actual purchases.
+          </p>
+          <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
+            <p class="font-bold"><i class="fa-solid fa-circle-check mr-1"></i> Capped Reimbursement Engine:</p>
+            <p>If an estimate is approved for $100 and the configurable tolerance cap is 10%, the system automatically caps the max reimbursement at $110, protecting the org budget from unapproved overspending.</p>
+          </div>
+        </div>
+
+        <!-- Concept 4: Transfer Safeguard Protocol -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+          <div class="flex items-center space-x-2 text-purple-600 font-bold">
+            <i class="fa-solid fa-key text-lg"></i>
+            <h4 class="text-slate-900 text-base">4. Executive Transfer Safety Protocol</h4>
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Prevents unauthorized lockouts during officer handoffs. Incoming Presidents or Treasurers must be invited via official NetID email and accept transfer terms before executive rights switch.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+
+  <!-- ==================== MODALS & POPUPS ==================== -->
+
+  <!-- Modal 1: Submit New Approval Request (Estimated Spending Commitment) -->
+  <div id="modalNewRequest" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-extrabold text-slate-800 text-lg flex items-center gap-2">
+          <i class="fa-solid fa-file-circle-plus text-utorange"></i> Submit New Approval Request
+        </h3>
+        <button onclick="closeNewRequestModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <p class="text-xs text-slate-500">
+        Submit an estimated budget commitment for approval before making any organization purchase.
+      </p>
+
+      <form id="formNewRequest" onsubmit="handleNewRequestSubmit(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Title / Purpose *</label>
+          <input type="text" id="reqTitle" required placeholder="e.g., Pizza for Vol Hacks Workshop" class="w-full p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-utorange focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Category *</label>
+          <select id="reqCategory" class="w-full p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-utorange focus:outline-none">
+            <option value="Events & Catering">Events & Catering</option>
+            <option value="Hardware & Supplies">Hardware & Supplies</option>
+            <option value="Apparel & Marketing">Apparel & Marketing</option>
+            <option value="Travel & Competitions">Travel & Competitions</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Estimated Approved Amount ($) *</label>
+          <input type="number" step="0.01" min="0.01" id="reqAmount" required placeholder="0.00" class="w-full p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-utorange focus:outline-none">
+        </div>
+
+        <div class="pt-3 flex gap-2 justify-end border-t border-slate-100">
+          <button type="button" onclick="closeNewRequestModal()" class="px-4 py-2 rounded-xl text-slate-600 font-semibold hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-utorange hover:bg-orange-600 text-white font-bold shadow">Submit Approval Request</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Modal 2: Upload Reimbursement Request (Actual Receipt Submission against Approved Request) -->
+  <div id="modalReimburse" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-extrabold text-slate-800 text-lg flex items-center gap-2">
+          <i class="fa-solid fa-receipt text-purple-600"></i> Upload Reimbursement Request
+        </h3>
+        <button onclick="closeReimburseModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="formReimburse" onsubmit="handleReimburseSubmit(event)" class="space-y-3 text-xs">
+        <input type="hidden" id="reimburseReqId">
+        
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <p class="font-bold text-slate-800" id="reimburseItemTitle">Item Title</p>
+          <p class="text-slate-500">Approved Spending Estimate: <strong id="reimburseApprovedDisplay" class="text-slate-800">$0.00</strong></p>
+          <p class="text-purple-700 text-[11px] mt-1 font-semibold">
+            <i class="fa-solid fa-shield-cat mr-1"></i> Max reimbursement capped at estimate + <span id="reimburseCapPercentDisplay">10%</span> (<span id="reimburseMaxAllowedDisplay">$0.00</span>)
+          </p>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Actual Receipt Expense ($) *</label>
+          <input type="number" step="0.01" min="0.01" id="reimburseAmountInput" oninput="calculateCapWarning()" required placeholder="0.00" class="w-full p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-utorange focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Receipt Image URL / Proof Link</label>
+          <input type="url" id="reqReceiptUrl" placeholder="https://..." class="w-full p-2.5 rounded-xl border border-slate-300">
+        </div>
+
+        <!-- Overage Tolerance Warning Box -->
+        <div id="reimburseCapWarning" class="hidden bg-amber-50 border border-amber-300 p-3 rounded-xl text-amber-900">
+          <p class="font-bold flex items-center gap-1"><i class="fa-solid fa-circle-exclamation text-amber-600"></i> Exceeds Approved Spending + Tolerance!</p>
+          <p class="text-[11px] text-amber-800 mt-0.5">Your actual expense exceeds the allowed tolerance cap. The submitted reimbursement will be trimmed strictly to the maximum allowed limit.</p>
+        </div>
+
+        <div class="pt-3 flex gap-2 justify-end border-t border-slate-100">
+          <button type="button" onclick="closeReimburseModal()" class="px-4 py-2 rounded-xl text-slate-600 font-semibold hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow">Submit Reimbursement</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Modal 3: Semester Bank Reconciliation Modal -->
+  <div id="modalReconcile" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-extrabold text-slate-800 text-lg flex items-center gap-2">
+          <i class="fa-solid fa-rotate text-utorange"></i> Reconcile Bank Balance
+        </h3>
+        <button onclick="closeReconcileModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <p class="text-xs text-slate-500">
+        Re-anchor True Bank Balance to match official Student Union statements without affecting active committed estimates.
+      </p>
+
+      <form id="formReconcile" onsubmit="handleReconcileSubmit(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Official Student Union Statement Balance ($) *</label>
+          <input type="number" step="0.01" min="0" id="reconcileBalanceInput" required class="w-full p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-utorange focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Reconciliation Notes</label>
+          <input type="text" id="reconcileNoteInput" placeholder="e.g., Mid-Semester Statement Audit" class="w-full p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-utorange focus:outline-none">
+        </div>
+
+        <div class="pt-3 flex gap-2 justify-end border-t border-slate-100">
+          <button type="button" onclick="closeReconcileModal()" class="px-4 py-2 rounded-xl text-slate-600 font-semibold hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-utdark hover:bg-slate-800 text-white font-bold shadow">Save & Re-anchor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Modal 4: Manual Deposit / Income Allocation Modal -->
+  <div id="modalDeposit" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-extrabold text-slate-800 text-lg flex items-center gap-2">
+          <i class="fa-solid fa-circle-plus text-emerald-600"></i> Log Deposit / Income Allocation
+        </h3>
+        <button onclick="closeDepositModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="formDeposit" onsubmit="handleDepositSubmit(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Deposit Amount ($) *</label>
+          <input type="number" step="0.01" min="0.01" id="depositAmountInput" required placeholder="0.00" class="w-full p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-utorange focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Source / Description *</label>
+          <input type="text" id="depositNoteInput" required placeholder="e.g., Student Senate Grant / Ticket Sales" class="w-full p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-utorange focus:outline-none">
+        </div>
+
+        <div class="pt-3 flex gap-2 justify-end border-t border-slate-100">
+          <button type="button" onclick="closeDepositModal()" class="px-4 py-2 rounded-xl text-slate-600 font-semibold hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow">Add Income</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400">
+    <p>© 2026 University of Tennessee, Knoxville • Student Organization Financial Shadow Ledger</p>
+  </footer>
+
+
+  <!-- ==================== JAVASCRIPT STATE ENGINE ==================== -->
+  <script>
+    /* ====================================================================
+       1. DEMO STATE & INITIAL SEEDED DATA
+       ==================================================================== */
+    
+    // Active View Perspective ('officer', 'treasurer', 'president')
+    let currentRole = 'officer';
+
+    // Active Queue Filter ('all', 'pending', 'approved', 'submitted', 'completed')
+    let currentQueueFilter = 'all';
+
+    // Customizable Overage Tolerance Cap (%)
+    let overageToleranceCap = 10;
+
+    // Users Database
+    const USERS = {
+      officer: { name: 'Alex Officer', email: 'alex@vols.utk.edu', role: 'Officer' },
+      treasurer: { name: 'Morgan Treasurer', email: 'morgan@vols.utk.edu', role: 'Treasurer' },
+      president: { name: 'Jordan President', email: 'jordan@vols.utk.edu', role: 'President' }
+    };
+
+    // Core Bank Balance Anchor (Official Student Union Bank Balance)
+    let bankBalance = 2000.00;
+    let lastReconciledDate = "Oct 12, 2026";
+
+    // Executive Role Transfer State
+    let pendingRoleTransfer = {
+      role: 'Treasurer',
+      email: 'incoming_treasurer@vols.utk.edu',
+      status: 'Pending Acceptance'
+    };
+
+    // Requests Database using updated workflow terminology
+    let requests = [
+      {
+        id: 'REQ-101',
+        title: 'Boba Tea for General Body Meeting',
+        category: 'Events & Catering',
+        spendAmount: 120.00,
+        reimbursementAmount: 0,
+        requestedBy: 'Alex Officer',
+        approvedBy: 'Morgan Treasurer',
+        status: 'approved', // Approved Spending
+        createdAt: 'Oct 14, 2026'
+      },
+      {
+        id: 'REQ-102',
+        title: 'Hackathon Flyers & Poster Printing',
+        category: 'Apparel & Marketing',
+        spendAmount: 85.00,
+        reimbursementAmount: 92.50,
+        requestedBy: 'Alex Officer',
+        approvedBy: 'Morgan Treasurer',
+        status: 'submitted', // Awaiting Reimbursement Settlement
+        createdAt: 'Oct 15, 2026'
+      },
+      {
+        id: 'REQ-103',
+        title: 'Arduino Starter Kits for Workshop',
+        category: 'Hardware & Supplies',
+        spendAmount: 250.00,
+        reimbursementAmount: 0,
+        requestedBy: 'Jordan President',
+        approvedBy: null,
+        status: 'pending', // Pending Review
+        createdAt: 'Oct 16, 2026'
+      },
+      {
+        id: 'REQ-100',
+        title: 'Kickoff Pizza Party',
+        category: 'Events & Catering',
+        spendAmount: 150.00,
+        reimbursementAmount: 145.00,
+        requestedBy: 'Alex Officer',
+        approvedBy: 'Morgan Treasurer',
+        status: 'completed', // Reimbursed & Settled
+        createdAt: 'Oct 01, 2026'
+      }
+    ];
+
+    // Ledger Entries (Settled Bank Cash)
+    let ledgerEntries = [
+      {
+        id: 'LED-001',
+        timestamp: 'Aug 25, 2026',
+        description: 'Fall Semester Base Allocation (Student Union)',
+        processedBy: 'SU Deposit',
+        amount: 2000.00
+      },
+      {
+        id: 'LED-002',
+        timestamp: 'Oct 01, 2026',
+        description: 'Reimbursement Settlement: Kickoff Pizza Party',
+        processedBy: 'Morgan Treasurer',
+        amount: -145.00
+      }
+    ];
+
+    // Monthly Trajectory Historical Data Points
+    const monthlyTrajectoryData = {
+      labels: ['Aug (Start)', 'Sep', 'Oct (Current)', 'Nov (Est)', 'Dec (Est)'],
+      trueBank: [2000, 2000, 1855, 1855, 1855],
+      available: [2000, 1850, 1400, 1400, 1400]
+    };
+
+    let trajectoryChart = null;
+
+
+    /* ====================================================================
+       2. FINANCIAL BALANCE CALCULATOR ENGINE
+       ==================================================================== */
+    
+    function calculateBalances() {
+      // Committed Balance = Sum of 'approved' (Approved Spending) and 'submitted' (Awaiting Settlement) requests
+      const committedBalance = requests.reduce((sum, req) => {
+        if (req.status === 'approved' || req.status === 'submitted') {
+          return sum + req.spendAmount;
+        }
+        return sum;
+      }, 0);
+
+      const committedCount = requests.filter(r => r.status === 'approved' || r.status === 'submitted').length;
+      const availableBalance = bankBalance - committedBalance;
+      const hasOverAvailableRequest = requests.some(r => r.status === 'pending' && r.spendAmount > availableBalance);
+
+      return {
+        bankBalance,
+        committedBalance,
+        committedCount,
+        availableBalance,
+        hasOverAvailableRequest
+      };
+    }
+
+    function calculateOfficerPersonalStats() {
+      const officerName = USERS.officer.name;
+      const myRequests = requests.filter(r => r.requestedBy === officerName);
+
+      // Pending reimbursement total = 'submitted' (Awaiting Reimbursement Settlement)
+      const pendingPayoutTotal = myRequests.reduce((sum, r) => {
+        if (r.status === 'submitted') {
+          return sum + (r.reimbursementAmount > 0 ? r.reimbursementAmount : r.spendAmount);
+        }
+        return sum;
+      }, 0);
+
+      const activeCount = myRequests.filter(r => r.status === 'pending' || r.status === 'approved' || r.status === 'submitted').length;
+
+      return { pendingPayoutTotal, activeCount, myRequests };
+    }
+
+
+    /* ====================================================================
+       3. UI RENDERER & PERMISSION ENFORCER
+       ==================================================================== */
+    
+    function updateUI() {
+      const balances = calculateBalances();
+      const officerStats = calculateOfficerPersonalStats();
+
+      // Officer Personal Dashboard Stats Update
+      document.getElementById('displayOfficerPendingAmount').textContent = `$${officerStats.pendingPayoutTotal.toFixed(2)}`;
+      document.getElementById('displayOfficerActiveCount').textContent = `${officerStats.activeCount} Items`;
+
+      // Executive Balances Update
+      document.getElementById('displayBankBalance').textContent = `$${balances.bankBalance.toFixed(2)}`;
+      document.getElementById('displayCommittedBalance').textContent = `$${balances.committedBalance.toFixed(2)}`;
+      document.getElementById('displayCommittedCount').textContent = `${balances.committedCount} Holds`;
+      document.getElementById('displayAvailableBalance').textContent = `$${balances.availableBalance.toFixed(2)}`;
+      document.getElementById('displayLastReconciled').textContent = lastReconciledDate;
+
+      // Available Balance Health Badge
+      const cardAvailable = document.getElementById('cardAvailableBalance');
+      const badgeStatus = document.getElementById('badgeAvailableStatus');
+      
+      if (balances.availableBalance < 0) {
+        cardAvailable.className = "bg-rose-50 border border-rose-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between";
+        badgeStatus.className = "bg-rose-100 text-rose-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]";
+        badgeStatus.textContent = "Deficit Flagged";
+      } else if (balances.availableBalance < 150) {
+        cardAvailable.className = "bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between";
+        badgeStatus.className = "bg-amber-100 text-amber-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]";
+        badgeStatus.textContent = "Low Cash";
+      } else {
+        cardAvailable.className = "bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between";
+        badgeStatus.className = "bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]";
+        badgeStatus.textContent = "Healthy";
+      }
+
+      // Over Available Alert Banner (Only for Treasurer / President)
+      const alertBox = document.getElementById('globalOverAvailableAlert');
+      if (currentRole !== 'officer' && balances.hasOverAvailableRequest) {
+        alertBox.classList.remove('hidden');
+      } else {
+        alertBox.classList.add('hidden');
+      }
+
+      renderQueueTable();
+      renderLedgerTable();
+      renderPendingRoleTransfer();
+      updateCategorySpendBreakdown();
+      renderChart();
+    }
+
+
+    /* ====================================================================
+       4. PERSPECTIVE SWITCHING (ROLE PRIVACY GUARDRAILS)
+       ==================================================================== */
+    
+    function switchPerspective(role) {
+      currentRole = role;
+
+      // Reset Switcher Buttons
+      ['Officer', 'Treasurer', 'President'].forEach(r => {
+        const btn = document.getElementById(`btnRole${r}`);
+        btn.className = "px-3.5 py-1.5 rounded-lg font-bold text-slate-300 hover:text-white hover:bg-slate-700 transition-all flex items-center gap-1.5";
+      });
+
+      // Highlight Active Button
+      const activeBtn = document.getElementById(`btnRole${role.charAt(0).toUpperCase() + role.slice(1)}`);
+      activeBtn.className = "px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 bg-utorange text-white shadow";
+
+      const bannerText = document.getElementById('roleBannerText');
+      const treasurerBar = document.getElementById('treasurerControlsBar');
+      const presidentHandoffCard = document.getElementById('presidentHandoffCard');
+      const execBalancePanel = document.getElementById('executiveBalancePanel');
+      const officerSummaryPanel = document.getElementById('officerSummaryPanel');
+      const bankLedgerSection = document.getElementById('sectionBankLedger');
+      const trendsTabBtn = document.getElementById('tabBtnTrends');
+      const tabTitleDashboard = document.getElementById('tabTitleDashboard');
+      const queueMainTitle = document.getElementById('queueMainTitle');
+      const queueMainSubtitle = document.getElementById('queueMainSubtitle');
+
+      if (role === 'officer') {
+        // OFFICER PRIVACY RESTRICTIONS
+        bannerText.innerHTML = `Logged in as <strong>${USERS.officer.name} (${USERS.officer.email})</strong> — You can submit approval requests, upload reimbursement requests, and track your submission history.`;
+        
+        execBalancePanel.classList.add('hidden');
+        bankLedgerSection.classList.add('hidden');
+        treasurerBar.classList.add('hidden');
+        presidentHandoffCard.classList.add('hidden');
+        trendsTabBtn.classList.add('hidden'); // Hide Monthly Trajectory tab
+        
+        officerSummaryPanel.classList.remove('hidden'); // Show Personal Pending Box
+        
+        tabTitleDashboard.textContent = "My Requests Dashboard";
+        queueMainTitle.innerHTML = `<i class="fa-solid fa-list-check text-utorange"></i> My Active Requests Queue`;
+        queueMainSubtitle.textContent = "Track your personal approval requests and reimbursement submissions";
+
+        // If currently on hidden trends tab, fall back to dashboard
+        if (!document.getElementById('tabTrends').classList.contains('hidden')) {
+          switchTab('dashboard');
+        }
+
+      } else if (role === 'treasurer') {
+        // TREASURER FULL ACCESS
+        bannerText.innerHTML = `Logged in as <strong>${USERS.treasurer.name} (${USERS.treasurer.email})</strong> — Full approval authority, overage tolerance controls, and payout settlement.`;
+        
+        execBalancePanel.classList.remove('hidden');
+        bankLedgerSection.classList.remove('hidden');
+        treasurerBar.classList.remove('hidden');
+        trendsTabBtn.classList.remove('hidden');
+        
+        presidentHandoffCard.classList.add('hidden');
+        officerSummaryPanel.classList.add('hidden');
+
+        tabTitleDashboard.textContent = "Executive Dashboard";
+        queueMainTitle.innerHTML = `<i class="fa-solid fa-list-check text-utorange"></i> Organization Request Management Queue`;
+        queueMainSubtitle.textContent = "Review, approve, or settle all student organization expense requests";
+
+      } else if (role === 'president') {
+        // PRESIDENT READ-ONLY EXECUTIVE ACCESS
+        bannerText.innerHTML = `Logged in as <strong>${USERS.president.name} (${USERS.president.email})</strong> — Executive Audit Access + Role Transfer Safeguard Protocol Manager.`;
+        
+        execBalancePanel.classList.remove('hidden');
+        bankLedgerSection.classList.remove('hidden');
+        presidentHandoffCard.classList.remove('hidden');
+        trendsTabBtn.classList.remove('hidden');
+        
+        treasurerBar.classList.add('hidden');
+        officerSummaryPanel.classList.add('hidden');
+
+        tabTitleDashboard.textContent = "Executive Oversight";
+        queueMainTitle.innerHTML = `<i class="fa-solid fa-list-check text-utorange"></i> Executive Audit Request Queue`;
+        queueMainSubtitle.textContent = "Audit all organization requests and track committed funds";
+      }
+
+      updateUI();
+    }
+
+    function switchTab(tabName) {
+      // Hide all tabs
+      document.getElementById('tabDashboard').classList.add('hidden');
+      document.getElementById('tabTrends').classList.add('hidden');
+      document.getElementById('tabCompliance').classList.add('hidden');
+
+      // Reset tab buttons
+      ['Dashboard', 'Trends', 'Compliance'].forEach(t => {
+        const btn = document.getElementById(`tabBtn${t}`);
+        if (btn) btn.className = "pb-3 px-4 text-slate-500 hover:text-slate-800 border-b-2 border-transparent flex items-center gap-2 transition-all";
+      });
+
+      // Highlight active tab
+      const activeBtn = document.getElementById(`tabBtn${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+      if (activeBtn) {
+        activeBtn.className = "pb-3 px-4 text-utorange border-b-2 border-utorange flex items-center gap-2 transition-all font-extrabold";
+      }
+
+      document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.remove('hidden');
+
+      if (tabName === 'trends' && currentRole !== 'officer') {
+        setTimeout(renderChart, 100);
+      }
+    }
+
+
+    /* ====================================================================
+       5. TABLE RENDERERS (REVISED STATUS TERMINOLOGY & ACTION BUTTONS)
+       ==================================================================== */
+    
+    function getStatusBadge(status) {
+      switch(status) {
+        case 'pending':
+          return `<span class="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-full text-xs inline-flex items-center gap-1"><i class="fa-solid fa-clock"></i> Pending Review</span>`;
+        case 'approved':
+          return `<span class="bg-blue-100 text-blue-800 font-bold px-2.5 py-1 rounded-full text-xs inline-flex items-center gap-1"><i class="fa-solid fa-thumbs-up"></i> Approved Spending</span>`;
+        case 'submitted':
+          return `<span class="bg-purple-100 text-purple-800 font-bold px-2.5 py-1 rounded-full text-xs inline-flex items-center gap-1"><i class="fa-solid fa-hourglass-half"></i> Awaiting Reimbursement Settlement</span>`;
+        case 'completed':
+          return `<span class="bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-full text-xs inline-flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> Reimbursed & Settled</span>`;
+        case 'denied':
+          return `<span class="bg-rose-100 text-rose-800 font-bold px-2.5 py-1 rounded-full text-xs inline-flex items-center gap-1"><i class="fa-solid fa-circle-xmark"></i> Denied</span>`;
+        default:
+          return status;
+      }
+    }
+
+    function setQueueFilter(filter) {
+      currentQueueFilter = filter;
+      
+      ['All', 'Pending', 'Approved', 'Submitted', 'Completed'].forEach(f => {
+        const btn = document.getElementById(`queueFilter${f}`);
+        if (btn) btn.className = "px-3 py-1.5 rounded-lg text-slate-600 hover:bg-white/60";
+      });
+
+      const activeBtn = document.getElementById(`queueFilter${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
+      if (activeBtn) activeBtn.className = "px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm border border-slate-200 font-extrabold";
+
+      renderQueueTable();
+    }
+
+    function renderQueueTable() {
+      const tbody = document.getElementById('tableQueue');
+      const availableCash = calculateBalances().availableBalance;
+
+      // OFFICER FILTER RULE: Officers only see their own requests
+      let baseDataset = requests;
+      if (currentRole === 'officer') {
+        baseDataset = requests.filter(r => r.requestedBy === USERS.officer.name);
+      }
+
+      // Filter Badge Counter
+      const pendingCount = baseDataset.filter(r => r.status === 'pending').length;
+      document.getElementById('filterCountPending').textContent = pendingCount;
+      document.getElementById('queueTotalCountDisplay').textContent = `Total Requests: ${baseDataset.length}`;
+
+      // Queue Category Filter
+      let filtered = baseDataset;
+      if (currentQueueFilter !== 'all') {
+        filtered = baseDataset.filter(r => r.status === currentQueueFilter);
+      }
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400 italic">No requests match this filter queue.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(r => {
+        const isOverAvailable = r.status === 'pending' && r.spendAmount > availableCash;
+        const isMyItem = r.requestedBy === USERS[currentRole].name;
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition-colors">
+            <td class="py-3.5 px-4">
+              <p class="font-bold text-slate-900">${r.title}</p>
+              <p class="text-xs text-slate-500">By: <strong>${r.requestedBy}</strong></p>
+            </td>
+            <td class="py-3.5 px-4 text-xs font-semibold text-slate-600">
+              ${r.category}
+            </td>
+            <td class="py-3.5 px-4 text-right font-bold text-slate-800">$${r.spendAmount.toFixed(2)}</td>
+            <td class="py-3.5 px-4 text-right font-bold ${r.reimbursementAmount > 0 ? 'text-purple-600' : 'text-slate-400'}">
+              ${r.reimbursementAmount > 0 ? '$' + r.reimbursementAmount.toFixed(2) : '—'}
+            </td>
+            <td class="py-3.5 px-4">
+              ${getStatusBadge(r.status)}
+              ${isOverAvailable && currentRole !== 'officer' ? `<p class="text-[10px] text-rose-600 font-bold mt-1"><i class="fa-solid fa-triangle-exclamation"></i> Over Available Cash</p>` : ''}
+            </td>
+            <td class="py-3.5 px-4 text-center">
+              <div class="flex items-center justify-center gap-1.5">
+                
+                <!-- Treasurer Review Options -->
+                ${currentRole === 'treasurer' && r.status === 'pending' ? `
+                  <button onclick="treasurerApprove('${r.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-2.5 py-1 rounded-lg shadow">
+                    ${isOverAvailable ? 'Override Approve' : 'Approve'}
+                  </button>
+                  <button onclick="treasurerDeny('${r.id}')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-2.5 py-1 rounded-lg shadow">
+                    Deny
+                  </button>
+                ` : ''}
+
+                <!-- Treasurer Reimbursement Settlement Payout Option -->
+                ${currentRole === 'treasurer' && r.status === 'submitted' ? `
+                  <button onclick="treasurerCompletePayout('${r.id}')" class="bg-utdark hover:bg-slate-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow flex items-center gap-1">
+                    <i class="fa-solid fa-money-check-dollar text-utorange"></i> Settle Payout
+                  </button>
+                ` : ''}
+
+                <!-- Upload Reimbursement Request Button (When Spending is Approved) -->
+                ${(isMyItem || currentRole === 'treasurer') && r.status === 'approved' ? `
+                  <button onclick="openReimburseModal('${r.id}')" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg shadow flex items-center gap-1">
+                    <i class="fa-solid fa-file-arrow-up"></i> Upload Reimbursement Request
+                  </button>
+                ` : ''}
+
+                ${r.status === 'completed' ? `<span class="text-xs text-slate-400"><i class="fa-solid fa-check text-emerald-500"></i> Settled</span>` : ''}
+                ${r.status === 'denied' ? `<span class="text-xs text-slate-400">Archived</span>` : ''}
+                ${r.status === 'pending' && currentRole === 'officer' ? `<span class="text-xs text-slate-400 italic">Under Review</span>` : ''}
+                ${r.status === 'submitted' && currentRole === 'officer' ? `<span class="text-xs text-purple-600 font-semibold italic">Processing</span>` : ''}
+
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderLedgerTable() {
+      if (currentRole === 'officer') return; // Officer restriction
+
+      const tbody = document.getElementById('tableLedger');
+      tbody.innerHTML = ledgerEntries.map(e => `
+        <tr class="hover:bg-slate-50/80 transition-colors">
+          <td class="py-3 px-4 text-xs font-semibold text-slate-500">${e.timestamp}</td>
+          <td class="py-3 px-4 font-medium text-slate-800">${e.description}</td>
+          <td class="py-3 px-4 text-xs text-slate-600">${e.processedBy}</td>
+          <td class="py-3 px-4 text-right font-bold ${e.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+            ${e.amount >= 0 ? '+$' + e.amount.toFixed(2) : '-$' + Math.abs(e.amount).toFixed(2)}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderPendingRoleTransfer() {
+      const container = document.getElementById('transferPendingContainer');
+      if (!pendingRoleTransfer) {
+        container.innerHTML = `<p class="text-slate-500 italic text-xs">No active role transfers pending.</p>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="flex items-center justify-between text-xs">
+          <div>
+            <span class="font-bold text-slate-800">${pendingRoleTransfer.role} Transfer</span> 
+            <span class="text-slate-500">➜ ${pendingRoleTransfer.email}</span>
+            <span class="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-[10px] ml-2">${pendingRoleTransfer.status}</span>
+          </div>
+          <button onclick="cancelRoleTransfer()" class="text-rose-600 hover:text-rose-800 font-bold text-xs">
+            Revoke Transfer
+          </button>
+        </div>
+      `;
+    }
+
+
+    /* ====================================================================
+       6. CHART.JS MONTHLY BALANCE TRAJECTORY GRAPH
+       ==================================================================== */
+    
+    function renderChart() {
+      if (currentRole === 'officer') return; // Officers cannot see chart
+
+      const ctx = document.getElementById('balanceChart');
+      if (!ctx) return;
+
+      const currentBalances = calculateBalances();
+      
+      monthlyTrajectoryData.trueBank[2] = currentBalances.bankBalance;
+      monthlyTrajectoryData.available[2] = currentBalances.availableBalance;
+
+      if (trajectoryChart) {
+        trajectoryChart.update();
+        return;
+      }
+
+      trajectoryChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: monthlyTrajectoryData.labels,
+          datasets: [
+            {
+              label: 'True Bank Balance ($)',
+              data: monthlyTrajectoryData.trueBank,
+              borderColor: '#2563EB',
+              backgroundColor: 'rgba(37, 99, 235, 0.1)',
+              borderWidth: 3,
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Available Working Budget ($)',
+              data: monthlyTrajectoryData.available,
+              borderColor: '#10B981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              borderWidth: 3,
+              fill: true,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top' }
+          },
+          scales: {
+            y: {
+              beginAtZero: false,
+              ticks: {
+                callback: function(value) { return '$' + value; }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updateCategorySpendBreakdown() {
+      if (currentRole === 'officer') return;
+
+      const categories = {};
+      let totalSpent = 0;
+
+      requests.forEach(r => {
+        if (r.status === 'completed' || r.status === 'approved' || r.status === 'submitted') {
+          const amt = r.reimbursementAmount > 0 ? r.reimbursementAmount : r.spendAmount;
+          categories[r.category] = (categories[r.category] || 0) + amt;
+          totalSpent += amt;
+        }
+      });
+
+      document.getElementById('trendTotalSpent').textContent = `$${totalSpent.toFixed(2)}`;
+      document.getElementById('trendNetAvailable').textContent = `$${calculateBalances().availableBalance.toFixed(2)}`;
+
+      const listContainer = document.getElementById('categorySpendList');
+      if (Object.keys(categories).length === 0) {
+        listContainer.innerHTML = `<p class="text-slate-400 italic">No expenditures logged yet.</p>`;
+        return;
+      }
+
+      listContainer.innerHTML = Object.entries(categories).map(([cat, amount]) => `
+        <div class="flex justify-between items-center p-2 rounded-lg bg-slate-50">
+          <span class="font-semibold text-slate-700">${cat}</span>
+          <span class="font-bold text-slate-900">$${amount.toFixed(2)}</span>
+        </div>
+      `).join('');
+    }
+
+
+    /* ====================================================================
+       7. HANDLERS & MODAL CONTROL LOGIC
+       ==================================================================== */
+    
+    // Submit NEW APPROVAL REQUEST
+    function handleNewRequestSubmit(e) {
+      e.preventDefault();
+      const title = document.getElementById('reqTitle').value;
+      const category = document.getElementById('reqCategory').value;
+      const spendAmount = parseFloat(document.getElementById('reqAmount').value);
+      
+      const currentUser = USERS[currentRole].name;
+
+      const newReq = {
+        id: 'REQ-' + Math.floor(104 + Math.random() * 900),
+        title,
+        category,
+        spendAmount,
+        reimbursementAmount: 0,
+        requestedBy: currentUser,
+        approvedBy: null,
+        status: 'pending', // Pending Review
+        createdAt: 'Today'
+      };
+
+      requests.unshift(newReq);
+      closeNewRequestModal();
+      document.getElementById('formNewRequest').reset();
+      updateUI();
+    }
+
+    function treasurerApprove(id) {
+      const req = requests.find(r => r.id === id);
+      if (req) {
+        req.status = 'approved'; // Approved Spending
+        req.approvedBy = USERS[currentRole].name;
+        updateUI();
+      }
+    }
+
+    function treasurerDeny(id) {
+      const req = requests.find(r => r.id === id);
+      if (req) {
+        req.status = 'denied';
+        updateUI();
+      }
+    }
+
+    // Open Upload Reimbursement Request Modal
+    function openReimburseModal(id) {
+      const req = requests.find(r => r.id === id);
+      if (!req) return;
+
+      document.getElementById('reimburseReqId').value = req.id;
+      document.getElementById('reimburseItemTitle').textContent = req.title;
+      document.getElementById('reimburseApprovedDisplay').textContent = `$${req.spendAmount.toFixed(2)}`;
+      document.getElementById('reimburseCapPercentDisplay').textContent = `${overageToleranceCap}%`;
+
+      const maxAllowed = req.spendAmount * (1 + overageToleranceCap / 100);
+      document.getElementById('reimburseMaxAllowedDisplay').textContent = `$${maxAllowed.toFixed(2)}`;
+
+      document.getElementById('modalReimburse').classList.remove('hidden');
+    }
+
+    function closeReimburseModal() {
+      document.getElementById('modalReimburse').classList.add('hidden');
+      document.getElementById('formReimburse').reset();
+      document.getElementById('reimburseCapWarning').classList.add('hidden');
+    }
+
+    function calculateCapWarning() {
+      const reqId = document.getElementById('reimburseReqId').value;
+      const req = requests.find(r => r.id === reqId);
+      if (!req) return;
+
+      const inputVal = parseFloat(document.getElementById('reimburseAmountInput').value) || 0;
+      const maxAllowed = req.spendAmount * (1 + overageToleranceCap / 100);
+
+      if (inputVal > maxAllowed) {
+        document.getElementById('reimburseCapWarning').classList.remove('hidden');
+      } else {
+        document.getElementById('reimburseCapWarning').classList.add('hidden');
+      }
+    }
+
+    function handleReimburseSubmit(e) {
+      e.preventDefault();
+      const reqId = document.getElementById('reimburseReqId').value;
+      const req = requests.find(r => r.id === reqId);
+      if (!req) return;
+
+      const actualSpent = parseFloat(document.getElementById('reimburseAmountInput').value);
+      const maxAllowed = req.spendAmount * (1 + overageToleranceCap / 100);
+
+      if (actualSpent > maxAllowed) {
+        req.reimbursementAmount = maxAllowed;
+      } else {
+        req.reimbursementAmount = actualSpent;
+      }
+
+      req.status = 'submitted'; // Awaiting Reimbursement Settlement
+      closeReimburseModal();
+      updateUI();
+    }
+
+    function treasurerCompletePayout(id) {
+      const req = requests.find(r => r.id === id);
+      if (!req) return;
+
+      req.status = 'completed'; // Reimbursed & Settled
+
+      const payoutAmount = req.reimbursementAmount > 0 ? req.reimbursementAmount : req.spendAmount;
+      
+      // Settled bank subtraction
+      bankBalance -= payoutAmount;
+
+      ledgerEntries.unshift({
+        id: 'LED-' + Math.floor(100 + Math.random() * 900),
+        timestamp: 'Today',
+        description: `Reimbursement Settlement: ${req.title}`,
+        processedBy: USERS[currentRole].name,
+        amount: -payoutAmount
+      });
+
+      updateUI();
+    }
+
+    function updateToleranceCap(val) {
+      overageToleranceCap = parseFloat(val) || 0;
+    }
+
+    function openReconcileModal() {
+      document.getElementById('reconcileBalanceInput').value = bankBalance.toFixed(2);
+      document.getElementById('modalReconcile').classList.remove('hidden');
+    }
+    function closeReconcileModal() { document.getElementById('modalReconcile').classList.add('hidden'); }
+
+    function handleReconcileSubmit(e) {
+      e.preventDefault();
+      const newBalance = parseFloat(document.getElementById('reconcileBalanceInput').value);
+      const note = document.getElementById('reconcileNoteInput').value || 'Student Union Statement Audit';
+
+      const diff = newBalance - bankBalance;
+      bankBalance = newBalance;
+      lastReconciledDate = "Today (Reconciled)";
+
+      ledgerEntries.unshift({
+        id: 'LED-' + Math.floor(100 + Math.random() * 900),
+        timestamp: 'Today',
+        description: `SU Bank Statement Reconciliation: ${note}`,
+        processedBy: USERS[currentRole].name,
+        amount: diff
+      });
+
+      closeReconcileModal();
+      updateUI();
+    }
+
+    function openDepositModal() { document.getElementById('modalDeposit').classList.remove('hidden'); }
+    function closeDepositModal() { document.getElementById('modalDeposit').classList.add('hidden'); }
+
+    function handleDepositSubmit(e) {
+      e.preventDefault();
+      const amount = parseFloat(document.getElementById('depositAmountInput').value);
+      const note = document.getElementById('depositNoteInput').value;
+
+      bankBalance += amount;
+
+      ledgerEntries.unshift({
+        id: 'LED-' + Math.floor(100 + Math.random() * 900),
+        timestamp: 'Today',
+        description: `Income Deposit: ${note}`,
+        processedBy: USERS[currentRole].name,
+        amount: amount
+      });
+
+      closeDepositModal();
+      document.getElementById('formDeposit').reset();
+      updateUI();
+    }
+
+    function initiateRoleTransfer() {
+      const role = document.getElementById('transferRoleSelect').value;
+      const email = document.getElementById('transferEmailInput').value;
+
+      if (!email) return;
+
+      pendingRoleTransfer = { role, email, status: 'Pending Acceptance' };
+      document.getElementById('transferEmailInput').value = '';
+      updateUI();
+    }
+
+    function cancelRoleTransfer() {
+      pendingRoleTransfer = null;
+      updateUI();
+    }
+
+    function openNewRequestModal() { document.getElementById('modalNewRequest').classList.remove('hidden'); }
+    function closeNewRequestModal() { document.getElementById('modalNewRequest').classList.add('hidden'); }
+
+    // Onload Initialization Default to Officer View
+    window.onload = function() {
+      switchPerspective('officer');
+    };
+  </script>
+</body>
+</html>
