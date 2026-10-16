@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>UT Shadow Ledger - Treasurer Portal</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <header>
+    <div class="brand-title">
+      <h1>SHADOW LEDGER</h1>
+      <span class="badge-ut">Treasurer Portal</span>
+    </div>
+    <div class="role-nav-bar">
+      <a href="officer.html" class="role-link">Officer View</a>
+      <a href="treasurer.html" class="role-link active">Treasurer View</a>
+      <a href="president.html" class="role-link">President View</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('dashboard')">Executive Dashboard</button>
+      <button class="tab-btn" onclick="switchTab('trends')">Monthly Spending Trends</button>
+      <button class="tab-btn" onclick="switchTab('education')">Compliance & Rules</button>
+    </div>
+
+    <!-- TAB 1: EXECUTIVE DASHBOARD -->
+    <div id="tab-dashboard">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-title">True Bank Balance</div>
+          <div class="metric-value" id="trueBalanceVal">\$0.00</div>
+          <div class="card-actions">
+            <button class="btn-outline" onclick="openModal('reconcileModal')">Reconcile Bank Balance</button>
+            <button class="btn-ut" style="padding: 4px 10px; font-size: 0.8rem;" onclick="openModal('depositModal')">+ Deposit</button>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">Committed Funds</div>
+          <div class="metric-value" id="committedVal" style="color: var(--ut-orange);">\$0.00</div>
+          <div class="metric-subtitle">Approved estimates waiting payout</div>
+        </div>
+
+        <div class="metric-card available">
+          <div class="metric-title">Available Working Budget</div>
+          <div class="metric-value" id="availableVal" style="color: var(--success-green);">\$0.00</div>
+          <div class="metric-subtitle">True Balance − Committed Funds</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h2>All Organization Requests</h2>
+          <div>
+            <label style="font-weight:bold; font-size:0.85rem;">Overage Tolerance Cap: </label>
+            <input type="number" id="toleranceCapInput" style="width: 50px; padding: 2px 5px;" onchange="updateToleranceSetting(this.value)">%
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Submitted By</th>
+              <th>Approved Estimate (\$)</th>
+              <th>Reimbursement (\$)</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="treasurerTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h2>True Balance Bank Ledger</h2>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Description</th><th>By</th><th>Amount (\$)</th></tr>
+          </thead>
+          <tbody id="ledgerTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 2: TRENDS -->
+    <div id="tab-trends" style="display: none;">
+      <div class="section-card">
+        <h2>Monthly Balance Trajectory</h2>
+        <canvas id="trendsChart" style="max-height: 400px; margin-top: 15px;"></canvas>
+      </div>
+    </div>
+
+    <!-- TAB 3: COMPLIANCE -->
+    <div id="tab-education" style="display: none;">
+      <div class="section-card">
+        <h2 style="color: var(--ut-orange); margin-bottom: 10px;">Treasurer Compliance Manual</h2>
+        <p>Ensure semester reconciliations occur at minimum at the start and end of each semester against official Student Union records.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: RECONCILE -->
+  <div id="reconcileModal" class="modal">
+    <div class="modal-content">
+      <h3>Reconcile Bank Balance</h3>
+      <div class="form-group" style="margin-top: 15px;">
+        <label>Verified SU Bank Balance (\$)</label>
+        <input type="number" id="reconcileVal" step="0.01">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="btn-outline" onclick="closeModal('reconcileModal')">Cancel</button>
+        <button class="btn-ut" onclick="saveReconciliation()">Save & Reconcile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DEPOSIT -->
+  <div id="depositModal" class="modal">
+    <div class="modal-content">
+      <h3>Log Bank Account Deposit</h3>
+      <div class="form-group" style="margin-top: 15px;">
+        <label>Deposit Description</label>
+        <input type="text" id="depDesc" placeholder="e.g. Grant / Member Dues">
+      </div>
+      <div class="form-group">
+        <label>Amount (\$)</label>
+        <input type="number" id="depAmount" step="0.01">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="btn-outline" onclick="closeModal('depositModal')">Cancel</button>
+        <button class="btn-ut" onclick="saveDeposit()">Log Deposit</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    let chartInstance = null;
+
+    window.onload = function() {
+      document.getElementById('toleranceCapInput').value = Storage.getTolerance();
+      renderTreasurerUI();
+      renderLedger();
+      initChart();
+    };
+
+    function renderTreasurerUI() {
+      document.getElementById('trueBalanceVal').innerText = `$${Storage.getTrueBalance().toFixed(2)}`;
+      document.getElementById('committedVal').innerText = `$${calculateCommittedFunds().toFixed(2)}`;
+      document.getElementById('availableVal').innerText = `$${calculateAvailableBalance().toFixed(2)}`;
+
+      const tbody = document.getElementById('treasurerTableBody');
+      tbody.innerHTML = '';
+
+      Storage.getRequests().forEach(r => {
+        let actions = '-';
+        if (r.status === 'pending') {
+          actions = `
+            <button class="btn-ut" style="padding:4px 8px; font-size:0.75rem;" onclick="setReqStatus('${r.id}', 'approved')">Approve</button>
+            <button class="btn-smokey" style="padding:4px 8px; font-size:0.75rem;" onclick="setReqStatus('${r.id}', 'denied')">Deny</button>
+          `;
+        } else if (r.status === 'awaiting') {
+          actions = `<button class="btn-ut" style="padding:4px 8px; font-size:0.75rem;" onclick="settlePayout('${r.id}')">Process Payout</button>`;
+        }
+
+        let statusText = r.status;
+        if (r.status === 'pending') statusText = 'Pending Review';
+        if (r.status === 'approved') statusText = 'Approved Spending';
+        if (r.status === 'awaiting') statusText = 'Awaiting Settlement';
+        if (r.status === 'completed') statusText = 'Reimbursed & Settled';
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${r.title}</td>
+            <td>${r.user}</td>
+            <td>$${r.estimate.toFixed(2)}</td>
+            <td>$${r.reimbursement.toFixed(2)}</td>
+            <td><span class="status-tag status-${r.status}">${statusText}</span></td>
+            <td>${actions}</td>
+          </tr>
+        `;
+      });
+    }
+
+    function renderLedger() {
+      const tbody = document.getElementById('ledgerTableBody');
+      tbody.innerHTML = '';
+      Storage.getLedger().forEach(entry => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${entry.date}</td>
+            <td>${entry.desc}</td>
+            <td>${entry.user}</td>
+            <td style="color: ${entry.amount >= 0 ? 'var(--success-green)' : 'var(--danger-red)'}; font-weight:bold;">
+              ${entry.amount >= 0 ? '+' : ''}$${entry.amount.toFixed(2)}
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function setReqStatus(id, status) {
+      const requests = Storage.getRequests();
+      const req = requests.find(r => r.id === id);
+      if (req) {
+        req.status = status;
+        Storage.saveRequests(requests);
+        renderTreasurerUI();
+      }
+    }
+
+    function settlePayout(id) {
+      const requests = Storage.getRequests();
+      const req = requests.find(r => r.id === id);
+      if (req) {
+        req.status = 'completed';
+        Storage.saveRequests(requests);
+
+        // Deduct from true bank balance
+        const newBalance = Storage.getTrueBalance() - req.reimbursement;
+        Storage.setTrueBalance(newBalance);
+
+        // Add ledger entry
+        const ledger = Storage.getLedger();
+        ledger.unshift({
+          id: Date.now().toString(),
+          date: new Date().toISOString().split('T')[0],
+          desc: `Reimbursement Payout: ${req.title}`,
+          user: 'Treasurer',
+          amount: -req.reimbursement
+        });
+        Storage.saveLedger(ledger);
+
+        renderTreasurerUI();
+        renderLedger();
+      }
+    }
+
+    function saveReconciliation() {
+      const val = parseFloat(document.getElementById('reconcileVal').value);
+      if (!isNaN(val)) {
+        Storage.setTrueBalance(val);
+        closeModal('reconcileModal');
+        renderTreasurerUI();
+      }
+    }
+
+    function saveDeposit() {
+      const desc = document.getElementById('depDesc').value;
+      const amount = parseFloat(document.getElementById('depAmount').value);
+      if (desc && !isNaN(amount)) {
+        Storage.setTrueBalance(Storage.getTrueBalance() + amount);
+        const ledger = Storage.getLedger();
+        ledger.unshift({
+          id: Date.now().toString(),
+          date: new Date().toISOString().split('T')[0],
+          desc: desc,
+          user: 'Treasurer',
+          amount: amount
+        });
+        Storage.saveLedger(ledger);
+        closeModal('depositModal');
+        renderTreasurerUI();
+        renderLedger();
+      }
+    }
+
+    function updateToleranceSetting(val) {
+      Storage.setTolerance(parseFloat(val));
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-dashboard').style.display = name === 'dashboard' ? 'block' : 'none';
+      document.getElementById('tab-trends').style.display = name === 'trends' ? 'block' : 'none';
+      document.getElementById('tab-education').style.display = name === 'education' ? 'block' : 'none';
+      event.target.classList.add('active');
+    }
+
+    function initChart() {
+      const ctx = document.getElementById('trendsChart').getContext('2d');
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+          datasets: [
+            { label: 'True Ending Balance (\$)', data: [2200, 2000, 1850, 1850, 1850], borderColor: '#4B4B4B', fill: false },
+            { label: 'Available Budget (\$)', data: [2100, 1850, 1700, 1700, 1700], borderColor: '#FF8200', fill: false }
+          ]
+        }
+      });
+    }
+  </script>
+</body>
+</html>
