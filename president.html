@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>UT Shadow Ledger - President Oversight Portal</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <header>
+    <div class="brand-title">
+      <h1>SHADOW LEDGER</h1>
+      <span class="badge-ut">President View</span>
+    </div>
+    <div class="role-nav-bar">
+      <a href="officer.html" class="role-link">Officer View</a>
+      <a href="treasurer.html" class="role-link">Treasurer View</a>
+      <a href="president.html" class="role-link active">President View</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('oversight')">Executive Oversight</button>
+      <button class="tab-btn" onclick="switchTab('transfer')">Role Handoff Protocol</button>
+    </div>
+
+    <!-- TAB 1: EXECUTIVE OVERSIGHT -->
+    <div id="tab-oversight">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-title">True Bank Balance</div>
+          <div class="metric-value" id="presTrueVal">\$0.00</div>
+          <div class="metric-subtitle">Read-only Executive Oversight</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Committed Funds</div>
+          <div class="metric-value" id="presCommittedVal" style="color: var(--ut-orange);">\$0.00</div>
+        </div>
+        <div class="metric-card available">
+          <div class="metric-title">Available Working Budget</div>
+          <div class="metric-value" id="presAvailableVal" style="color: var(--success-green);">\$0.00</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h2>Organization Request Log (Read-Only)</h2>
+        <table>
+          <thead>
+            <tr><th>Title</th><th>Submitted By</th><th>Estimate (\$)</th><th>Reimbursement (\$)</th><th>Status</th></tr>
+          </thead>
+          <tbody id="presTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 2: ROLE TRANSFER -->
+    <div id="tab-transfer" style="display: none;">
+      <div class="section-card">
+        <h2>Executive Board Transfer Protection Protocol</h2>
+        <p style="margin-bottom: 20px; color: #555;">Initiate role transfer requests to incoming executive members safely.</p>
+        
+        <div class="form-group" style="max-width: 400px;">
+          <label>Incoming Officer Email</label>
+          <input type="email" placeholder="student@vols.utk.edu">
+        </div>
+        <button class="btn-ut" onclick="alert('Role transfer invitation sent to incoming officer!')">Send Transfer Request</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    window.onload = function() {
+      document.getElementById('presTrueVal').innerText = `$${Storage.getTrueBalance().toFixed(2)}`;
+      document.getElementById('presCommittedVal').innerText = `$${calculateCommittedFunds().toFixed(2)}`;
+      document.getElementById('presAvailableVal').innerText = `$${calculateAvailableBalance().toFixed(2)}`;
+
+      const tbody = document.getElementById('presTableBody');
+      tbody.innerHTML = '';
+      Storage.getRequests().forEach(r => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${r.title}</td>
+            <td>${r.user}</td>
+            <td>$${r.estimate.toFixed(2)}</td>
+            <td>$${r.reimbursement.toFixed(2)}</td>
+            <td><span class="status-tag status-${r.status}">${r.status}</span></td>
+          </tr>
+        `;
+      });
+    };
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-oversight').style.display = name === 'oversight' ? 'block' : 'none';
+      document.getElementById('tab-transfer').style.display = name === 'transfer' ? 'block' : 'none';
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>
